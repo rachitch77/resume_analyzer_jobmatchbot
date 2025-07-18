@@ -1,138 +1,198 @@
-import os
-import json
 import streamlit as st
+from auth.session_manager import init_session_state, store_user, authenticate_user
+from auth.otp_utils import send_otp_to_email
 from PyPDF2 import PdfReader
 from openai import OpenAI
 import gspread
 from google.oauth2.service_account import Credentials
-import re
 
-# ---------- 🔐 Load credentials ----------
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-sheet_creds = json.loads(st.secrets["gspread_service_account"].to_json())
-creds = Credentials.from_service_account_info(sheet_creds, scopes=SCOPES)
-
-gc = gspread.authorize(creds)
-SHEET_NAME = "ResumeAnalyzerUsers"
-TAB_NAME = "Users"
-sheet = gc.open(SHEET_NAME).worksheet(TAB_NAME)
-
+# ------------------- CONFIG -------------------
+DEBUG_MODE = False
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-# ---------- 🧠 Functions ----------
-def get_user_data(email):
-    users = sheet.get_all_records()
-    for i, user in enumerate(users, start=2):
-        if user["email"].lower() == email.lower():
-            return i, user
-    return None, None
+# Google Sheets Setup
+SHEET_NAME = "ResumeAnalyzerUsers"
+TAB_NAME = "Users"
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+sheet_creds = dict(st.secrets["gspread_service_account"])
+creds = Credentials.from_service_account_info(sheet_creds, scopes=SCOPES)
+gc = gspread.authorize(creds)
+worksheet = gc.open(SHEET_NAME).worksheet(TAB_NAME)
 
-def update_usage(email):
-    row_num, user = get_user_data(email)
-    if not user:
+# ------------------- USAGE FUNCTIONS -------------------
+def get_user_row(email):
+    try:
+        cell = worksheet.find(email)
+        return cell.row
+    except:
+        return None
+
+def get_usage(email):
+    row = get_user_row(email)
+    if not row:
+        return 0, "unknown"
+    current = int(worksheet.cell(row, 6).value or 0)
+    max_val = worksheet.cell(row, 7).value or "5"
+    return current, max_val
+
+def increment_usage(email):
+    row = get_user_row(email)
+    if not row:
         return False
-
-    if user["max_usage"].lower() != "unlimited":
-        if int(user["usage_count"]) >= int(user["max_usage"]):
-            return False
-        new_count = int(user["usage_count"]) + 1
-        sheet.update_cell(row_num, 6, new_count)  # usage_count = col 6
-        user["usage_count"] = new_count  # update local cache too
+    current = int(worksheet.cell(row, 6).value or 0)
+    max_val = worksheet.cell(row, 7).value
+    if max_val != "unlimited" and current >= int(max_val):
+        return False
+    worksheet.update_cell(row, 6, current + 1)
     return True
 
-def generate_analysis(resume_text, jd_text):
-    prompt = f"""
-You are a professional HR recruiter. Compare the following resume and job description, and:
-1. List 3 strengths and 3 weaknesses.
-2. Give a matching score between 0-100%.
-3. Finally, write a short recommendation about whether the candidate is a good fit and why.
+# ------------------- MAIN APP -------------------
+def main():
+    st.set_page_config(page_title="Resana Resume Analyzer", layout="centered")
+    init_session_state()
+
+    if st.session_state.logged_in:
+        dashboard()
+    else:
+        st.sidebar.title("Navigation")
+        choice = st.sidebar.radio("Go to", ["Login", "Signup"])
+        if choice == "Login":
+            login_page()
+        else:
+            signup_page()
+
+# ------------------- LOGIN PAGE -------------------
+def login_page():
+    st.title("🔐 Login")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if authenticate_user(email, password):
+            st.session_state.email = email
+            st.session_state.logged_in = True
+            st.success("✅ Login successful!")
+            st.rerun()
+        else:
+            st.error("Invalid email or password.")
+
+# ------------------- SIGNUP PAGE -------------------
+def signup_page():
+    st.title("📝 Signup")
+    name = st.text_input("Full Name")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+    confirm_password = st.text_input("Confirm Password", type="password")
+    age = st.number_input("Age", min_value=1, max_value=120)
+    gender = st.radio("Gender", ["Male", "Female", "Other"])
+
+    if st.button("Generate OTP"):
+        if not all([name, email, password, confirm_password]):
+            st.warning("Please fill out all fields.")
+        elif password != confirm_password:
+            st.error("Passwords do not match.")
+        else:
+            otp = send_otp_to_email(email)
+            if otp:
+                st.session_state.signup_otp = otp
+                st.session_state.signup_data = {
+                    "name": name,
+                    "email": email,
+                    "password": password,
+                    "age": age,
+                    "gender": gender
+                }
+                st.success(f"OTP sent to {email}")
+                if DEBUG_MODE:
+                    st.info(f"DEBUG OTP: {otp}")
+            else:
+                st.error("❌ Failed to send OTP. Please try again.")
+
+    if "signup_otp" in st.session_state:
+        otp_input = st.text_input("Enter OTP to complete registration")
+        if st.button("Register"):
+            if otp_input == st.session_state.signup_otp:
+                data = st.session_state.signup_data
+                success = store_user(
+                    data["name"],
+                    data["email"],
+                    data["password"],
+                    str(data["age"]),
+                    data["gender"]
+                )
+                if success:
+                    st.success("🎉 Registered successfully! Please login.")
+                    del st.session_state.signup_otp
+                    del st.session_state.signup_data
+                else:
+                    st.warning("User already exists.")
+            else:
+                st.error("❌ Invalid OTP. Please try again.")
+
+# ------------------- DASHBOARD -------------------
+def dashboard():
+    st.title("📊 Resume Analyzer & Job Match Bot")
+    st.write(f"Welcome, **{st.session_state.email}**!")
+
+    used, maxed = get_usage(st.session_state.email)
+    st.info(f"🧾 Usage: **{used} / {maxed}**")
+
+    uploaded_file = st.file_uploader("Upload Resume PDF", type=["pdf"])
+    job_description = st.text_area("Paste Job Description Here")
+
+    if st.button("Analyze Match"):
+        if uploaded_file and job_description:
+            if not increment_usage(st.session_state.email):
+                st.error("❌ Usage limit reached. Please contact admin.")
+                return
+
+            reader = PdfReader(uploaded_file)
+            resume_text = ""
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    resume_text += text
+
+            prompt = f"""
+Compare the resume to the job description and return:
+- Match percentage (0–100%).
+- Matched skills.
+- Missing skills.
+- One-line suitability summary.
+- Final Recommendation: Strong / Medium / Weak Match.
 
 Resume:
 {resume_text}
 
 Job Description:
-{jd_text}
+{job_description}
 """
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
 
-def extract_text_from_pdf(pdf_file):
-    reader = PdfReader(pdf_file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
-    return text
-
-# ---------- 🌟 Streamlit UI ----------
-st.set_page_config(page_title="Resume Analyzer & Job Match Bot", page_icon="🧠")
-st.title("🧠 Resume Analyzer & Job Match Bot")
-st.markdown("Compare your resume to a job description and get match score, strengths, weaknesses & feedback.")
-
-# ---------- 🔐 Login ----------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    st.subheader("🔐 Login")
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        _, user = get_user_data(email)
-        if user and user["password"] == password:
-            st.session_state.logged_in = True
-            st.session_state.email = email
-            st.success("Logged in successfully.")
-            st.experimental_rerun()
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful AI HR assistant."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                result = response.choices[0].message.content
+                st.success("✅ Analysis complete!")
+                st.markdown("### 📋 Analysis Result")
+                st.write(result)
+            except Exception as e:
+                st.error(f"❌ OpenAI API error: {e}")
         else:
-            st.error("Invalid email or password.")
-    st.stop()
+            st.warning("Please upload resume and enter job description.")
 
-# ---------- 👤 Show User Info ----------
-row_num, user = get_user_data(st.session_state.email)
-usage_count = int(user["usage_count"])
-max_usage = user["max_usage"]
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.email = ""
+        st.rerun()
 
-st.info(
-    f"👤 **Name:** {user['name']} | 📧 **Email:** {user['email']}  \n"
-    f"📊 **Usage:** {usage_count} / {max_usage}"
-)
-
-# ---------- 📤 Upload & Analyze ----------
-st.subheader("📄 Upload Resume (PDF) and Paste Job Description")
-resume_file = st.file_uploader("Upload Resume PDF", type=["pdf"])
-job_desc = st.text_area("Paste Job Description", height=200)
-
-if st.button("Analyze Match"):
-    if not resume_file or not job_desc.strip():
-        st.warning("Please upload resume and paste job description.")
-    elif max_usage.lower() != "unlimited" and usage_count >= int(max_usage):
-        st.error("⚠️ You’ve reached your usage limit.")
-    else:
-        resume_text = extract_text_from_pdf(resume_file)
-        with st.spinner("Analyzing..."):
-            result = generate_analysis(resume_text, job_desc)
-        st.success("✅ Analysis Complete!")
-        st.markdown("### 📊 Analysis Result")
-        st.markdown(result)
-
-        # Extract score % if present
-        score_match = re.search(r"(\d{1,3})\s*[%]", result)
-        if score_match:
-            percent_score = int(score_match.group(1))
-            st.progress(min(percent_score, 100) / 100)
-
-        # Final Recommendation
-        st.markdown("### 🎯 Final Recommendation")
-        if "good fit" in result.lower():
-            st.success("The candidate is likely a **strong fit** for this role based on the resume.")
-        elif "not a good fit" in result.lower() or "weak fit" in result.lower():
-            st.error("The candidate is **not an ideal match**. Consider tailoring the resume.")
-        else:
-            st.info("Review the analysis to understand alignment.")
-
-        # ✅ Increment usage
-        update_usage(st.session_state.email)
-        st.experimental_rerun()
+# ------------------- RUN APP -------------------
+if __name__ == "__main__":
+    main()
