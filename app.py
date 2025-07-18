@@ -4,7 +4,14 @@ from auth.otp_utils import send_otp_to_email
 from PyPDF2 import PdfReader
 from openai import OpenAI
 import gspread
+import json
 from google.oauth2.service_account import Credentials
+
+# Load credentials from Streamlit secrets
+scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+creds_dict = st.secrets["gspread_service_account"]  # stored as dict in secrets
+creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+
 
 # ------------------- CONFIG -------------------
 DEBUG_MODE = False
