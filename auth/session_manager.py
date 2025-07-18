@@ -41,9 +41,8 @@ def load_users():
 def store_user(name, email, password, age, gender):
     ws = get_worksheet()
     users = load_users()
-
     if any(str(user.get("email", "")).strip().lower() == email.strip().lower() for user in users):
-        return False
+        return False  # Email already exists
 
     ws.append_row([
         email.strip(),
