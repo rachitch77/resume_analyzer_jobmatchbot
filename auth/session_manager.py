@@ -14,12 +14,10 @@ creds = service_account.Credentials.from_service_account_info(
 service = build("sheets", "v4", credentials=creds)
 sheet = service.spreadsheets()
 
-# Helper to get full range like Users!A1:Z1000
 def get_range(start_cell="A1:Z1000"):
     return f"{TAB_NAME}!{start_cell}"
 
 def init_session_state():
-    """Initialize Streamlit session state variables."""
     defaults = {
         "is_logged_in": False,
         "user_data": {},
@@ -32,11 +30,10 @@ def init_session_state():
             st.session_state[key] = value
 
 def get_user_row(email):
-    """Find user row number by email (1-based index)."""
     try:
         result = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("A2:A")).execute()
         emails = result.get("values", [])
-        for i, row in enumerate(emails, start=2):  # Starting from row 2
+        for i, row in enumerate(emails, start=2):
             if row and row[0].strip().lower() == email.strip().lower():
                 return i
         return None
@@ -45,7 +42,6 @@ def get_user_row(email):
         return None
 
 def get_user_data(email):
-    """Return user data as dict from the sheet."""
     try:
         headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
         row_number = get_user_row(email)
@@ -53,7 +49,6 @@ def get_user_data(email):
             return None
         row_data = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
 
-        # Fill missing fields
         if len(row_data) < len(headers):
             row_data += [""] * (len(headers) - len(row_data))
 
@@ -69,7 +64,6 @@ def get_user_data(email):
         return None
 
 def update_usage(email):
-    """Increment usage_count for a user in Google Sheet."""
     try:
         row_number = get_user_row(email)
         if not row_number:
@@ -82,14 +76,46 @@ def update_usage(email):
         current_usage = int(row_data[usage_index]) if len(row_data) > usage_index and row_data[usage_index].isdigit() else 0
         row_data[usage_index] = str(current_usage + 1)
 
-        # Update only usage_count cell
         update_range = get_range(f"{row_number}:{row_number}")
-        values = [row_data]
         sheet.values().update(
             spreadsheetId=SHEET_NAME,
             range=update_range,
             valueInputOption="RAW",
-            body={"values": values}
+            body={"values": [row_data]}
         ).execute()
     except Exception as e:
         st.error(f"Error updating usage count: {e}")
+
+def store_user(email, name, password, age=None, gender=None):
+    try:
+        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        new_user = {
+            "email": email,
+            "name": name,
+            "password": password,
+            "usage_count": "0",
+            "max_usage": "5",
+            "age": age or "",
+            "gender": gender or ""
+        }
+
+        row = [new_user.get(header, "") for header in headers]
+        sheet.values().append(
+            spreadsheetId=SHEET_NAME,
+            range=get_range(),
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [row]}
+        ).execute()
+    except Exception as e:
+        st.error(f"Error storing new user: {e}")
+
+def authenticate_user(email, password):
+    try:
+        user = get_user_data(email)
+        if user and user.get("password") == password:
+            return True
+        return False
+    except Exception as e:
+        st.error(f"Authentication failed: {e}")
+        return False
