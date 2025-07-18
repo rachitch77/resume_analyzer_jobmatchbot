@@ -18,8 +18,9 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 creds_dict = st.secrets["gcp_service_account"]
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 sheets_service = build("sheets", "v4", credentials=creds)
-spreadsheet_id = st.secrets["gcp_service_account"]["sheet_id"]
+spreadsheet_id = creds_dict["sheet_id"]
 
+# ------------------- SHEET HELPERS -------------------
 def get_sheet_values():
     result = sheets_service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
@@ -31,7 +32,7 @@ def get_user_row_index(email):
     rows = get_sheet_values()
     for i, row in enumerate(rows):
         if row[0].strip().lower() == email.strip().lower():
-            return i + 2  # +2 because of header and 0-indexing
+            return i + 2  # +2 because header and 0-based index
     return None
 
 def get_usage(email):
@@ -63,10 +64,10 @@ def increment_usage(email):
 
 # ------------------- MAIN APP -------------------
 def main():
-    st.set_page_config(page_title=" Resume Analyzer Bot", layout="centered")
+    st.set_page_config(page_title="Resume Analyzer Bot", layout="centered")
     init_session_state()
 
-    if st.session_state.logged_in:
+    if st.session_state.get("logged_in", False):
         dashboard()
     else:
         st.sidebar.title("Navigation")
@@ -84,8 +85,8 @@ def login_page():
 
     if st.button("Login"):
         if authenticate_user(email, password):
-            st.session_state.email = email
             st.session_state.logged_in = True
+            st.session_state.email = email
             st.success("✅ Login successful!")
             st.rerun()
         else:
@@ -170,11 +171,11 @@ def dashboard():
 
             prompt = f"""
 Compare the resume to the job description and return:
-- Match percentage (0–100%).
-- Matched skills.
-- Missing skills.
-- One-line suitability summary.
-- Final Recommendation: Strong / Medium / Weak Match.
+- Match percentage (0–100%)
+- Matched skills
+- Missing skills
+- One-line suitability summary
+- Final Recommendation: Strong / Medium / Weak Match
 
 Resume:
 {resume_text}
