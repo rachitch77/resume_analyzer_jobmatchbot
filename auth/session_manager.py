@@ -3,9 +3,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import json
 
-service_account_info = st.secrets["gcp_service_account"]
-creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
-gc = gspread.authorize(creds)
+
 
 # Google Sheets config from streamlit secrets
 SHEET_NAME = "ResumeAnalyzerUsers"  # Your spreadsheet name
