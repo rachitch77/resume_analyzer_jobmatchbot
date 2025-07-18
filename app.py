@@ -3,57 +3,66 @@ from auth.session_manager import init_session_state, store_user, authenticate_us
 from auth.otp_utils import send_otp_to_email
 from PyPDF2 import PdfReader
 from openai import OpenAI
-import gspread
-import json
 from google.oauth2.service_account import Credentials
-
-# Load credentials from Streamlit secrets
-scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-creds_dict = st.secrets["gcp_service_account"]  # stored as dict in secrets
-creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-
+from googleapiclient.discovery import build
 
 # ------------------- CONFIG -------------------
+SHEET_NAME = "ResumeAnalyzerUsers"
+TAB_NAME = "Users"
 DEBUG_MODE = False
+
+# Initialize OpenAI client
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # Google Sheets Setup
-SHEET_NAME = "ResumeAnalyzerUsers"
-TAB_NAME = "Users"
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-sheet_creds = dict(st.secrets["gspread_service_account"])
-creds = Credentials.from_service_account_info(sheet_creds, scopes=SCOPES)
-gc = gspread.authorize(creds)
-worksheet = gc.open(SHEET_NAME).worksheet(TAB_NAME)
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+creds_dict = st.secrets["gcp_service_account"]
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+sheets_service = build("sheets", "v4", credentials=creds)
+spreadsheet_id = SHEET_NAME  # Make sure this is the spreadsheet ID, not the name!
 
-# ------------------- USAGE FUNCTIONS -------------------
-def get_user_row(email):
-    try:
-        cell = worksheet.find(email)
-        return cell.row
-    except:
-        return None
+def get_sheet_values():
+    result = sheets_service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{TAB_NAME}!A2:H"
+    ).execute()
+    return result.get("values", [])
+
+def get_user_row_index(email):
+    rows = get_sheet_values()
+    for i, row in enumerate(rows):
+        if row[0].strip().lower() == email.strip().lower():
+            return i + 2  # +2 because of header and 0-indexing
+    return None
 
 def get_usage(email):
-    row = get_user_row(email)
+    row = get_user_row_index(email)
     if not row:
         return 0, "unknown"
-    current = int(worksheet.cell(row, 6).value or 0)
-    max_val = worksheet.cell(row, 7).value or "5"
+    values = sheets_service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{TAB_NAME}!G{row}:H{row}"
+    ).execute().get("values", [[]])[0]
+    current = int(values[0]) if len(values) > 0 else 0
+    max_val = values[1] if len(values) > 1 else "5"
     return current, max_val
 
 def increment_usage(email):
-    row = get_user_row(email)
+    row = get_user_row_index(email)
     if not row:
         return False
-    current = int(worksheet.cell(row, 6).value or 0)
-    max_val = worksheet.cell(row, 7).value
+
+    current, max_val = get_usage(email)
     if max_val != "unlimited" and current >= int(max_val):
         return False
-    worksheet.update_cell(row, 6, current + 1)
+
+    sheets_service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet_id,
+        range=f"{TAB_NAME}!G{row}",
+        valueInputOption="RAW",
+        body={"values": [[current + 1]]}
+    ).execute()
+
     return True
 
 # ------------------- MAIN APP -------------------
