@@ -1,8 +1,7 @@
-# auth/utils_otp.py
-
 import random
 import smtplib
 from email.mime.text import MIMEText
+import os
 
 OTP_STORE = {}
 
@@ -10,8 +9,8 @@ def send_otp_to_email(email):
     otp = str(random.randint(100000, 999999))
     OTP_STORE[email] = otp
 
-    sender_email = "rachit87911094@gmail.com"
-    sender_password = "wams pdga tiek xmda"  # App-specific password
+    sender_email = os.getenv("SENDER_EMAIL", "rachit87911094@gmail.com")
+    sender_password = os.getenv("SENDER_PASSWORD", "wams pdga tiek xmda")  # Ideally set in secrets.toml or env var
 
     try:
         msg = MIMEText(f"Your OTP is: {otp}")
@@ -25,10 +24,10 @@ def send_otp_to_email(email):
         server.send_message(msg)
         server.quit()
 
-        print("OTP email sent successfully!")
+        print(f"OTP sent to {email}")
         return otp
     except Exception as e:
-        print(f"Failed to send OTP: {e}")
+        print(f"Failed to send OTP to {email}: {e}")
         return None
 
 def verify_otp(email, otp_input):
