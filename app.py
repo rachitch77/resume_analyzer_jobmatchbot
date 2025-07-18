@@ -58,7 +58,7 @@ def increment_usage(email):
 
 # ------------------- MAIN APP -------------------
 def main():
-    st.set_page_config(page_title="Resana Resume Analyzer", layout="centered")
+    st.set_page_config(page_title=" Resume Analyzer Bot", layout="centered")
     init_session_state()
 
     if st.session_state.logged_in:
