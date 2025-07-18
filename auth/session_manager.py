@@ -1,12 +1,10 @@
-import os
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 
 # Google Sheet Configuration
-SERVICE_ACCOUNT_PATH = os.path.join(os.path.dirname(__file__), "../secrets/gsheets_credentials.json")
-SHEET_NAME = "ResumeAnalyzerUsers"  # 📌 Spreadsheet file name
-TAB_NAME = "Users"  # ✅ Sheet tab name within the spreadsheet
+SHEET_NAME = "ResumeAnalyzerUsers"  # Spreadsheet file name
+TAB_NAME = "Users"                  # Worksheet name
 
 def init_session_state():
     default_values = {
@@ -29,7 +27,9 @@ def get_worksheet():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_PATH, scopes=scopes)
+    creds = Credentials.from_service_account_info(
+        st.secrets["gspread_service_account"], scopes=scopes
+    )
     client = gspread.authorize(creds)
     sheet = client.open(SHEET_NAME)
     return sheet.worksheet(TAB_NAME)
