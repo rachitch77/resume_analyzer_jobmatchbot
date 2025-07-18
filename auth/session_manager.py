@@ -1,18 +1,22 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
-import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
+# Google Sheets config
+SHEET_NAME = "ResumeAnalyzerUsers"  # Spreadsheet name
+TAB_NAME = "Users"  # Tab name
 
+# Load credentials and build Sheets API client
+creds = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+)
+service = build("sheets", "v4", credentials=creds)
+sheet = service.spreadsheets()
 
-# Google Sheets config from streamlit secrets
-SHEET_NAME = "ResumeAnalyzerUsers"  # Your spreadsheet name
-TAB_NAME = "Users"  # Your sheet/tab name
-
-# Load credentials and initialize gspread
-sheet_creds = st.secrets["gspread_service_account"]
-gc = gspread.authorize(Credentials.from_service_account_info(sheet_creds))
-worksheet = gc.open(SHEET_NAME).worksheet(TAB_NAME)
+# Helper to get full range like Users!A1:Z1000
+def get_range(start_cell="A1:Z1000"):
+    return f"{TAB_NAME}!{start_cell}"
 
 def init_session_state():
     """Initialize Streamlit session state variables."""
@@ -28,54 +32,64 @@ def init_session_state():
             st.session_state[key] = value
 
 def get_user_row(email):
-    """Find user row number by email."""
+    """Find user row number by email (1-based index)."""
     try:
-        emails = worksheet.col_values(1)
-        if email in emails:
-            return emails.index(email) + 1  # +1 for 1-based indexing
+        result = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("A2:A")).execute()
+        emails = result.get("values", [])
+        for i, row in enumerate(emails, start=2):  # Starting from row 2
+            if row and row[0].strip().lower() == email.strip().lower():
+                return i
         return None
     except Exception as e:
-        st.error(f"Error fetching user row: {e}")
+        st.error(f"Error finding user row: {e}")
         return None
 
 def get_user_data(email):
     """Return user data as dict from the sheet."""
-    row_number = get_user_row(email)
-    if row_number is None:
+    try:
+        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        row_number = get_user_row(email)
+        if not row_number:
+            return None
+        row_data = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
+
+        # Fill missing fields
+        if len(row_data) < len(headers):
+            row_data += [""] * (len(headers) - len(row_data))
+
+        user_data = dict(zip(headers, row_data))
+        if not user_data.get("usage_count"):
+            user_data["usage_count"] = "0"
+        if not user_data.get("max_usage"):
+            user_data["max_usage"] = "5"
+
+        return user_data
+    except Exception as e:
+        st.error(f"Error fetching user data: {e}")
         return None
-
-    row_data = worksheet.row_values(row_number)
-    headers = worksheet.row_values(1)
-
-    # Fill missing cells with empty string
-    if len(row_data) < len(headers):
-        row_data += [""] * (len(headers) - len(row_data))
-
-    user_data = dict(zip(headers, row_data))
-
-    # Set default usage if empty
-    if not user_data.get("usage_count"):
-        user_data["usage_count"] = "0"
-    if not user_data.get("max_usage"):
-        user_data["max_usage"] = "5"
-
-    return user_data
 
 def update_usage(email):
     """Increment usage_count for a user in Google Sheet."""
-    row_number = get_user_row(email)
-    if row_number is None:
-        return
+    try:
+        row_number = get_user_row(email)
+        if not row_number:
+            return
 
-    usage_cell = f"{get_column_letter('usage_count')}{row_number}"
-    current_usage = int(worksheet.acell(usage_cell).value or "0")
-    worksheet.update_acell(usage_cell, str(current_usage + 1))
+        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        usage_index = headers.index("usage_count")
 
-def get_column_letter(column_name):
-    """Get the column letter for a column name."""
-    headers = worksheet.row_values(1)
-    if column_name not in headers:
-        raise ValueError(f"Column '{column_name}' not found.")
-    col_index = headers.index(column_name) + 1
-    return gspread.utils.rowcol_to_a1(1, col_index)[0]
+        row_data = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
+        current_usage = int(row_data[usage_index]) if len(row_data) > usage_index and row_data[usage_index].isdigit() else 0
+        row_data[usage_index] = str(current_usage + 1)
 
+        # Update only usage_count cell
+        update_range = get_range(f"{row_number}:{row_number}")
+        values = [row_data]
+        sheet.values().update(
+            spreadsheetId=SHEET_NAME,
+            range=update_range,
+            valueInputOption="RAW",
+            body={"values": values}
+        ).execute()
+    except Exception as e:
+        st.error(f"Error updating usage count: {e}")
