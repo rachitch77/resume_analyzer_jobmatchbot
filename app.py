@@ -9,7 +9,7 @@ from google.oauth2.service_account import Credentials
 
 # Load credentials from Streamlit secrets
 scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-creds_dict = st.secrets["gspread_service_account"]  # stored as dict in secrets
+creds_dict = st.secrets["gcp_service_account"]  # stored as dict in secrets
 creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
 
