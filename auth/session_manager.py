@@ -22,7 +22,7 @@ def init_session_state():
         "is_logged_in": False,
         "user_data": {},
         "usage_count": 0,
-        "max_usage": 5,
+        "max_usage": 3,
         "email": "",
     }
     for key, value in defaults.items():
