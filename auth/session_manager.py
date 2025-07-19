@@ -97,7 +97,6 @@ def store_user(email, name, password, age=None, gender=None):
             "max_usage": "3",
             "age": age or "",
             "gender": gender or ""
-            "otp": "",
         }
 
         row = [new_user.get(header, "") for header in headers]
