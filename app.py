@@ -5,6 +5,7 @@ from PyPDF2 import PdfReader
 from openai import OpenAI
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+import re  # ✅ added for parsing GPT output
 
 # ------------------- CONFIG -------------------
 TAB_NAME = "Users"
@@ -145,7 +146,6 @@ def signup_page():
             else:
                 st.error("❌ Invalid OTP. Please try again.")
 
-
 # ------------------- DASHBOARD -------------------
 def dashboard():
     st.title("📊 Resume Analyzer & Job Match Bot")
@@ -177,6 +177,7 @@ Compare the resume to the job description and return:
 - Missing skills
 - One-line suitability summary
 - Final Recommendation: Strong / Medium / Weak Match
+- Suggest 3 improvements to better match
 
 Resume:
 {resume_text}
@@ -196,7 +197,27 @@ Job Description:
                 result = response.choices[0].message.content
                 st.success("✅ Analysis complete!")
                 st.markdown("### 📋 Analysis Result")
-                st.write(result)
+
+                # ------ Parse and Display Result --------
+                match = re.search(r"Match Score: (\d+)%", result)
+                suggestions = re.findall(r"Suggestions:\s*1\.\s*(.*?)\s*2\.\s*(.*?)\s*3\.\s*(.*)", result, re.DOTALL)
+                final_reco = re.search(r"Final Recommendation:\s*(.*)", result)
+
+                if match:
+                    st.markdown(f"**✅ Match Score:** `{match.group(1)}%`")
+
+                if suggestions:
+                    st.markdown("### 💡 Suggestions to Improve:")
+                    st.markdown(f"1. {suggestions[0][0].strip()}")
+                    st.markdown(f"2. {suggestions[0][1].strip()}")
+                    st.markdown(f"3. {suggestions[0][2].strip()}")
+
+                if final_reco:
+                    st.markdown("### 🏁 Final Recommendation:")
+                    st.markdown(f"**{final_reco.group(1).strip()}**")
+                else:
+                    st.warning("⚠️ Final recommendation not found in response.")
+
             except Exception as e:
                 st.error(f"❌ OpenAI API error: {e}")
         else:
