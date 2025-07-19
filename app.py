@@ -194,9 +194,14 @@ Job Description:
                     ]
                 )
                 result = response.choices[0].message.content
+
+                # Safely encode/decode to strip out problematic characters (like invalid emojis)
+                safe_result = result.encode("utf-8", "ignore").decode("utf-8", "ignore")
+
                 st.success("✅ Analysis complete!")
                 st.markdown("### 📋 Analysis Result")
-                st.write(result)
+                st.write(safe_result)
+
             except Exception as e:
                 st.error(f"❌ OpenAI API error: {e}")
         else:
