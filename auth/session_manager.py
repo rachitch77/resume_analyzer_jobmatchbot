@@ -2,11 +2,11 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# Google Sheets config
-SHEET_NAME = "ResumeAnalyzerUsers"  # Spreadsheet name
-TAB_NAME = "Users"  # Tab name
+# Config
+TAB_NAME = "Users"
+spreadsheet_id = st.secrets["gcp_service_account"]["sheet_id"]  # ✅ FIXED
 
-# Load credentials and build Sheets API client
+# Auth
 creds = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"],
     scopes=["https://www.googleapis.com/auth/spreadsheets"]
@@ -31,7 +31,7 @@ def init_session_state():
 
 def get_user_row(email):
     try:
-        result = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("A2:A")).execute()
+        result = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("A2:A")).execute()
         emails = result.get("values", [])
         for i, row in enumerate(emails, start=2):
             if row and row[0].strip().lower() == email.strip().lower():
@@ -43,11 +43,11 @@ def get_user_row(email):
 
 def get_user_data(email):
     try:
-        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        headers = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("1:1")).execute().get("values", [[]])[0]
         row_number = get_user_row(email)
         if not row_number:
             return None
-        row_data = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
+        row_data = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
 
         if len(row_data) < len(headers):
             row_data += [""] * (len(headers) - len(row_data))
@@ -69,16 +69,16 @@ def update_usage(email):
         if not row_number:
             return
 
-        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        headers = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("1:1")).execute().get("values", [[]])[0]
         usage_index = headers.index("usage_count")
 
-        row_data = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
+        row_data = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
         current_usage = int(row_data[usage_index]) if len(row_data) > usage_index and row_data[usage_index].isdigit() else 0
         row_data[usage_index] = str(current_usage + 1)
 
         update_range = get_range(f"{row_number}:{row_number}")
         sheet.values().update(
-            spreadsheetId=SHEET_NAME,
+            spreadsheetId=spreadsheet_id,
             range=update_range,
             valueInputOption="RAW",
             body={"values": [row_data]}
@@ -88,7 +88,7 @@ def update_usage(email):
 
 def store_user(email, name, password, age=None, gender=None):
     try:
-        headers = sheet.values().get(spreadsheetId=SHEET_NAME, range=get_range("1:1")).execute().get("values", [[]])[0]
+        headers = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("1:1")).execute().get("values", [[]])[0]
         new_user = {
             "email": email,
             "name": name,
@@ -101,14 +101,16 @@ def store_user(email, name, password, age=None, gender=None):
 
         row = [new_user.get(header, "") for header in headers]
         sheet.values().append(
-            spreadsheetId=SHEET_NAME,
+            spreadsheetId=spreadsheet_id,
             range=get_range(),
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
             body={"values": [row]}
         ).execute()
+        return True
     except Exception as e:
         st.error(f"Error storing new user: {e}")
+        return False
 
 def authenticate_user(email, password):
     try:
