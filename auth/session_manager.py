@@ -56,7 +56,7 @@ def get_user_data(email):
         if not user_data.get("usage_count"):
             user_data["usage_count"] = "0"
         if not user_data.get("max_usage"):
-            user_data["max_usage"] = "5"
+            user_data["max_usage"] = "3"  # ✅ FIXED from "5" to "3" to match store_user
 
         return user_data
     except Exception as e:
@@ -94,7 +94,7 @@ def store_user(email, name, password, age=None, gender=None):
             "name": name,
             "password": password,
             "usage_count": "0",
-            "max_usage": "3",
+            "max_usage": "3",  # ✅ Matches default
             "age": age or "",
             "gender": gender or ""
         }
