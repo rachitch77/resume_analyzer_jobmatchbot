@@ -94,7 +94,7 @@ def store_user(email, name, password, age=None, gender=None):
             "name": name,
             "password": password,
             "usage_count": "0",
-            "max_usage": "5",
+            "max_usage": "3",
             "age": age or "",
             "gender": gender or ""
             "otp": "",
