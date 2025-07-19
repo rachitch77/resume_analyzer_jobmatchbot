@@ -160,7 +160,7 @@ def dashboard():
     if st.button("Analyze Match"):
         if uploaded_file and job_description:
             if not increment_usage(st.session_state.email):
-                st.error("❌ Usage limit reached. Please contact admin.")
+                st.error("❌ Usage limit reached. Please contact admin. Mail us at rachit.jb77@gmail.com with subject RAusage")
                 return
 
             reader = PdfReader(uploaded_file)
