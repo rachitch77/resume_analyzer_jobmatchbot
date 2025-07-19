@@ -130,8 +130,8 @@ def signup_page():
             if otp_input == st.session_state.signup_otp:
                 data = st.session_state.signup_data
                 success = store_user(
+                    data["email"],   # ✅ fixed argument order
                     data["name"],
-                    data["email"],
                     data["password"],
                     str(data["age"]),
                     data["gender"]
@@ -144,6 +144,7 @@ def signup_page():
                     st.warning("User already exists.")
             else:
                 st.error("❌ Invalid OTP. Please try again.")
+
 
 # ------------------- DASHBOARD -------------------
 def dashboard():
