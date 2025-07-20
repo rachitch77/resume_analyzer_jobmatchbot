@@ -70,15 +70,12 @@ def main():
     if st.session_state.get("logged_in", False):
         dashboard()
     else:
-        st.markdown("<h1 style='text-align: center;'>🔐 Login / Signup to Resume Analyzer Bot</h1>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            page = st.radio("Select Option", ["Login", "Signup"], horizontal=True, label_visibility="collapsed")
-
-            if page == "Login":
-                login_page()
-            else:
-                signup_page()
+        st.sidebar.title("Navigation")
+        choice = st.sidebar.radio("Go to", ["Login", "Signup"])
+        if choice == "Login":
+            login_page()
+        else:
+            signup_page()
 
 # ------------------- LOGIN PAGE -------------------
 def login_page():
@@ -133,7 +130,7 @@ def signup_page():
             if otp_input == st.session_state.signup_otp:
                 data = st.session_state.signup_data
                 success = store_user(
-                    data["email"],
+                    data["email"],   # ✅ fixed argument order
                     data["name"],
                     data["password"],
                     str(data["age"]),
@@ -147,6 +144,7 @@ def signup_page():
                     st.warning("User already exists.")
             else:
                 st.error("❌ Invalid OTP. Please try again.")
+
 
 # ------------------- DASHBOARD -------------------
 def dashboard():
