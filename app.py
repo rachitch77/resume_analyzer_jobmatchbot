@@ -32,7 +32,7 @@ def get_user_row_index(email):
     rows = get_sheet_values()
     for i, row in enumerate(rows):
         if row[0].strip().lower() == email.strip().lower():
-            return i + 2
+            return i + 2  # +2 because header and 0-based index
     return None
 
 def get_usage(email):
@@ -70,15 +70,12 @@ def main():
     if st.session_state.get("logged_in", False):
         dashboard()
     else:
-        st.markdown("<h1 style='text-align: center;'>🔐 Login / Signup to Resume Analyzer Bot</h1>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            page = st.radio("Select Option", ["Login", "Signup"], horizontal=True, label_visibility="collapsed")
-
-            if page == "Login":
-                login_page()
-            else:
-                signup_page()
+        st.sidebar.title("Navigation")
+        choice = st.sidebar.radio("Go to", ["Login", "Signup"])
+        if choice == "Login":
+            login_page()
+        else:
+            signup_page()
 
 # ------------------- LOGIN PAGE -------------------
 def login_page():
@@ -105,46 +102,35 @@ def signup_page():
     age = st.number_input("Age", min_value=1, max_value=120)
     gender = st.radio("Gender", ["Male", "Female", "Other"])
 
-    if "signup_otp" not in st.session_state:
-        if st.button("Generate OTP"):
-            if not all([name, email, password, confirm_password]):
-                st.warning("Please fill out all fields.")
-            elif password != confirm_password:
-                st.error("Passwords do not match.")
-            else:
-                otp = send_otp_to_email(email)
-                if otp:
-                    st.session_state.signup_otp = otp
-                    st.session_state.signup_data = {
-                        "name": name,
-                        "email": email,
-                        "password": password,
-                        "age": age,
-                        "gender": gender
-                    }
-                    st.success(f"OTP sent to {email}")
-                    if DEBUG_MODE:
-                        st.info(f"DEBUG OTP: {otp}")
-                else:
-                    st.error("❌ Failed to send OTP. Please try again.")
-    else:
-        # Resend OTP
-        if st.button("Resend OTP"):
-            otp = send_otp_to_email(st.session_state.signup_data["email"])
+    if st.button("Generate OTP"):
+        if not all([name, email, password, confirm_password]):
+            st.warning("Please fill out all fields.")
+        elif password != confirm_password:
+            st.error("Passwords do not match.")
+        else:
+            otp = send_otp_to_email(email)
             if otp:
                 st.session_state.signup_otp = otp
-                st.success(f"A new OTP has been sent to {st.session_state.signup_data['email']}")
+                st.session_state.signup_data = {
+                    "name": name,
+                    "email": email,
+                    "password": password,
+                    "age": age,
+                    "gender": gender
+                }
+                st.success(f"OTP sent to {email}")
                 if DEBUG_MODE:
                     st.info(f"DEBUG OTP: {otp}")
             else:
-                st.error("❌ Failed to resend OTP.")
+                st.error("❌ Failed to send OTP. Please try again.")
 
+    if "signup_otp" in st.session_state:
         otp_input = st.text_input("Enter OTP to complete registration")
         if st.button("Register"):
             if otp_input == st.session_state.signup_otp:
                 data = st.session_state.signup_data
                 success = store_user(
-                    data["email"],
+                    data["email"],   # ✅ fixed argument order
                     data["name"],
                     data["password"],
                     str(data["age"]),
@@ -158,6 +144,7 @@ def signup_page():
                     st.warning("User already exists.")
             else:
                 st.error("❌ Invalid OTP. Please try again.")
+
 
 # ------------------- DASHBOARD -------------------
 def dashboard():
