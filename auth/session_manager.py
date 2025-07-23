@@ -73,7 +73,10 @@ def update_usage(email):
         usage_index = headers.index("usage_count")
 
         row_data = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
-        current_usage = int(row_data[usage_index]) if len(row_data) > usage_index and row_data[usage_index].isdigit() else 0
+        if len(row_data) < len(headers):
+            row_data += [""] * (len(headers) - len(row_data))
+
+        current_usage = int(row_data[usage_index]) if row_data[usage_index].isdigit() else 0
         row_data[usage_index] = str(current_usage + 1)
 
         update_range = get_range(f"{row_number}:{row_number}")
