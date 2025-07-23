@@ -31,9 +31,10 @@ def get_sheet_values():
 def get_user_row_index(email):
     rows = get_sheet_values()
     for i, row in enumerate(rows):
-        if row[0].strip().lower() == email.strip().lower():
+        if row and row[0].strip().lower() == email.strip().lower():
             return i + 2  # +2 because header and 0-based index
     return None
+
 
 def get_usage(email):
     row = get_user_row_index(email)
