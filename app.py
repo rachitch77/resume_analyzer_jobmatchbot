@@ -10,8 +10,8 @@ from googleapiclient.discovery import build
 TAB_NAME = "Users"
 DEBUG_MODE = False
 
-# ✅ Fixed: Initialize OpenAI client with correct secrets key path
-client = OpenAI(api_key=st.secrets["openai"]["openai_api_key"])
+# ✅ Fixed: Initialize OpenAI client with correct secrets format
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # Google Sheets Setup
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
