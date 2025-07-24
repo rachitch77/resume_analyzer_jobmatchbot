@@ -5,11 +5,12 @@ from PyPDF2 import PdfReader
 from openai import OpenAI
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+import re
 
 # ------------------- CONFIG -------------------
 TAB_NAME = "Users"
 DEBUG_MODE = False
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])  # ✅ Correct secrets format
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # ------------------- GOOGLE SHEETS -------------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -113,7 +114,7 @@ def signup_page():
                     "name": name,
                     "email": email,
                     "password": password,
-                    "age": str(age),  # ✅ Ensure age is string
+                    "age": str(age),
                     "gender": gender
                 }
                 st.success(f"OTP sent to {email}")
@@ -165,7 +166,9 @@ def dashboard():
             for page in reader.pages:
                 text = page.extract_text()
                 if text:
-                    resume_text += text
+                    # Remove invalid UTF-8 characters like emojis
+                    clean_text = re.sub(r'[^\x00-\x7F]+', '', text)
+                    resume_text += clean_text
 
             prompt = f"""
 Compare the resume to the job description and return:
