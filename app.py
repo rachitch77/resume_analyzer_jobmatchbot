@@ -42,29 +42,25 @@ def get_user_row_index(email):
 def get_usage(email):
     row = get_user_row_index(email)
     if not row:
-        return 0, "unknown"
+        return 0, 3  # fallback default
     values = sheets_service.spreadsheets().values().get(
         spreadsheetId=spreadsheet_id,
         range=f"{TAB_NAME}!G{row}:H{row}"
     ).execute().get("values", [[]])[0]
-    current = int(values[0]) if len(values) > 0 else 0
-    max_val = values[1] if len(values) > 1 else "5"
-    return current, max_val
+    current = int(values[0]) if len(values) > 0 and values[0].isdigit() else 0
+    max_val = values[1] if len(values) > 1 else "3"
+    if str(max_val).strip().lower() == "unlimited":
+        return current, "unlimited"
+    return current, int(max_val)
 
 def increment_usage(email):
-    row = get_user_row_index(email)
-    if not row:
+    from auth.session_manager import update_usage  # ✅ Import your own function
+    used, maxed = get_usage(email)
+    if maxed != "unlimited" and used >= int(maxed):
         return False
-    current, max_val = get_usage(email)
-    if max_val != "unlimited" and current >= int(max_val):
-        return False
-    sheets_service.spreadsheets().values().update(
-        spreadsheetId=spreadsheet_id,
-        range=f"{TAB_NAME}!G{row}",
-        valueInputOption="RAW",
-        body={"values": [[current + 1]]}
-    ).execute()
+    update_usage(email)
     return True
+
 
 # ------------------- MAIN APP -------------------
 def main():
