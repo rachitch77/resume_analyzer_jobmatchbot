@@ -20,6 +20,10 @@ creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 sheets_service = build("sheets", "v4", credentials=creds)
 spreadsheet_id = creds_dict["sheet_id"]
 
+# ------------------- TEXT CLEANING -------------------
+def clean_text(text):
+    return text.encode("utf-8", "ignore").decode("utf-8")
+
 # ------------------- SHEET HELPERS -------------------
 def get_sheet_values():
     result = sheets_service.spreadsheets().values().get(
@@ -34,7 +38,6 @@ def get_user_row_index(email):
         if row and row[0].strip().lower() == email.strip().lower():
             return i + 2  # +2 because header and 0-based index
     return None
-
 
 def get_usage(email):
     row = get_user_row_index(email)
@@ -131,7 +134,7 @@ def signup_page():
             if otp_input == st.session_state.signup_otp:
                 data = st.session_state.signup_data
                 success = store_user(
-                    data["email"],   # ✅ fixed argument order
+                    data["email"],
                     data["name"],
                     data["password"],
                     str(data["age"]),
@@ -145,7 +148,6 @@ def signup_page():
                     st.warning("User already exists.")
             else:
                 st.error("❌ Invalid OTP. Please try again.")
-
 
 # ------------------- DASHBOARD -------------------
 def dashboard():
@@ -170,6 +172,10 @@ def dashboard():
                 text = page.extract_text()
                 if text:
                     resume_text += text
+
+            # ✅ Clean text before using in prompt
+            resume_text = clean_text(resume_text)
+            job_description = clean_text(job_description)
 
             prompt = f"""
 Compare the resume to the job description and return:
