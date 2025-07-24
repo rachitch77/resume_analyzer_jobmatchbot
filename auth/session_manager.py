@@ -2,17 +2,14 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# Config
 TAB_NAME = "Users"
-spreadsheet_id = st.secrets["gcp_service_account"]["sheet_id"]  # ✅ FIXED
+spreadsheet_id = st.secrets["gcp_service_account"]["sheet_id"]
 
-# Auth
 creds = service_account.Credentials.from_service_account_info(
     st.secrets["gcp_service_account"],
     scopes=["https://www.googleapis.com/auth/spreadsheets"]
 )
-service = build("sheets", "v4", credentials=creds)
-sheet = service.spreadsheets()
+sheet = build("sheets", "v4", credentials=creds).spreadsheets()
 
 def get_range(start_cell="A1:Z1000"):
     return f"{TAB_NAME}!{start_cell}"
@@ -22,7 +19,7 @@ def init_session_state():
         "is_logged_in": False,
         "user_data": {},
         "usage_count": 0,
-        "max_usage": 3,
+        "max_usage": 5,
         "email": "",
     }
     for key, value in defaults.items():
@@ -48,17 +45,9 @@ def get_user_data(email):
         if not row_number:
             return None
         row_data = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range(f"{row_number}:{row_number}")).execute().get("values", [[]])[0]
-
         if len(row_data) < len(headers):
             row_data += [""] * (len(headers) - len(row_data))
-
-        user_data = dict(zip(headers, row_data))
-        if not user_data.get("usage_count"):
-            user_data["usage_count"] = "0"
-        if not user_data.get("max_usage"):
-            user_data["max_usage"] = "3"  # ✅ FIXED from "5" to "3" to match store_user
-
-        return user_data
+        return dict(zip(headers, row_data))
     except Exception as e:
         st.error(f"Error fetching user data: {e}")
         return None
@@ -79,10 +68,9 @@ def update_usage(email):
         current_usage = int(row_data[usage_index]) if row_data[usage_index].isdigit() else 0
         row_data[usage_index] = str(current_usage + 1)
 
-        update_range = get_range(f"{row_number}:{row_number}")
         sheet.values().update(
             spreadsheetId=spreadsheet_id,
-            range=update_range,
+            range=get_range(f"{row_number}:{row_number}"),
             valueInputOption="RAW",
             body={"values": [row_data]}
         ).execute()
@@ -94,14 +82,14 @@ def store_user(email, name, password, age=None, gender=None):
         headers = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("1:1")).execute().get("values", [[]])[0]
         new_user = {
             "email": email,
-            "name": name,
             "password": password,
-            "usage_count": "0",
-            "max_usage": "3",  # ✅ Matches default
+            "name": name,
             "age": age or "",
-            "gender": gender or ""
+            "gender": gender or "",
+            "otp": "",
+            "usage_count": "0",
+            "max_usage": "5"
         }
-
         row = [new_user.get(header, "") for header in headers]
         sheet.values().append(
             spreadsheetId=spreadsheet_id,
