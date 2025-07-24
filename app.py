@@ -9,11 +9,9 @@ from googleapiclient.discovery import build
 # ------------------- CONFIG -------------------
 TAB_NAME = "Users"
 DEBUG_MODE = False
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])  # ✅ Correct secrets format
 
-# ✅ Fixed: Initialize OpenAI client with correct secrets format
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-
-# Google Sheets Setup
+# ------------------- GOOGLE SHEETS -------------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 creds_dict = st.secrets["gcp_service_account"]
 creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
@@ -32,7 +30,7 @@ def get_user_row_index(email):
     rows = get_sheet_values()
     for i, row in enumerate(rows):
         if row and row[0].strip().lower() == email.strip().lower():
-            return i + 2  # +2 because header and 0-based index
+            return i + 2
     return None
 
 def get_usage(email):
@@ -43,7 +41,7 @@ def get_usage(email):
         spreadsheetId=spreadsheet_id,
         range=f"{TAB_NAME}!G{row}:H{row}"
     ).execute().get("values", [[]])[0]
-    current = int(values[0]) if len(values) > 0 else 0
+    current = int(values[0]) if len(values) > 0 and values[0].isdigit() else 0
     max_val = values[1] if len(values) > 1 else "5"
     return current, max_val
 
@@ -115,7 +113,7 @@ def signup_page():
                     "name": name,
                     "email": email,
                     "password": password,
-                    "age": age,
+                    "age": str(age),  # ✅ Ensure age is string
                     "gender": gender
                 }
                 st.success(f"OTP sent to {email}")
@@ -130,10 +128,10 @@ def signup_page():
             if otp_input == st.session_state.signup_otp:
                 data = st.session_state.signup_data
                 success = store_user(
-                    data["email"],   # ✅ fixed argument order
+                    data["email"],
                     data["name"],
                     data["password"],
-                    str(data["age"]),
+                    data["age"],
                     data["gender"]
                 )
                 if success:
@@ -159,7 +157,7 @@ def dashboard():
     if st.button("Analyze Match"):
         if uploaded_file and job_description:
             if not increment_usage(st.session_state.email):
-                st.error("❌ Usage limit reached. Please contact admin. Mail us at rachit.jb77@gmail.com with subject RAusage")
+                st.error("❌ Usage limit reached. Please contact admin at rachit.jb77@gmail.com with subject RAusage")
                 return
 
             reader = PdfReader(uploaded_file)
