@@ -79,18 +79,18 @@ def update_usage(email):
 
 def store_user(email, name, password, age=None, gender=None):
     try:
-        headers = sheet.values().get(spreadsheetId=spreadsheet_id, range=get_range("1:1")).execute().get("values", [[]])[0]
-        new_user = {
-            "email": email,
-            "password": password,
-            "name": name,
-            "age": age or "",
-            "gender": gender or "",
-            "otp": "",
-            "usage_count": "0",
-            "max_usage": "5"
-        }
-        row = [new_user.get(header, "") for header in headers]
+        # Use correct column order based on actual sheet layout
+        row = [
+            email,          # A - email
+            name,           # B - name
+            password,       # C - password
+            "0",            # D - usage_count
+            "5",            # E - max_usage
+            str(age or ""), # F - age
+            gender or "",   # G - gender
+            ""              # H - reserved/OTP
+        ]
+
         sheet.values().append(
             spreadsheetId=spreadsheet_id,
             range=get_range(),
