@@ -9,8 +9,11 @@ import re
 
 # ------------------- CONFIG -------------------
 TAB_NAME = "Users"
-DEBUG_MODE = False
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+DEBUG_MODE = Falseclient = OpenAI(
+    api_key="sk_ai_2c5d98497dffa1c6fcacf9194737d4f00c9e737648952efa",  
+    base_url="http://localhost:5000/api/proxy/openai/v1"
+)
+
 
 # ------------------- GOOGLE SHEETS -------------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -210,3 +213,4 @@ Job Description:
 # ------------------- RUN APP -------------------
 if __name__ == "__main__":
     main()
+
