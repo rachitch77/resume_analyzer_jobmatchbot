@@ -12,8 +12,9 @@ TAB_NAME = "Users"
 DEBUG_MODE = False
 client = OpenAI(
     api_key=st.secrets["aiintellisense"]["api_key"],
-    base_url="https://api.aiintellisense.com/v1"
+    base_url="https://api.aiintellisense.com/api/proxy/openai/v1"
 )
+
 
 # ------------------- GOOGLE SHEETS -------------------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -213,6 +214,7 @@ Job Description:
 # ------------------- RUN APP -------------------
 if __name__ == "__main__":
     main()
+
 
 
 
