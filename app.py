@@ -169,6 +169,7 @@ def dashboard():
             for page in reader.pages:
                 text = page.extract_text()
                 if text:
+                    # Remove invalid UTF-8 characters like emojis
                     clean_text = re.sub(r'[^\x00-\x7F]+', '', text)
                     resume_text += clean_text
 
@@ -195,17 +196,10 @@ Job Description:
                         {"role": "user", "content": prompt}
                     ]
                 )
-
-                # ✅ ONLY REQUIRED FIX
-                if isinstance(response, str):
-                    result = response
-                else:
-                    result = response.choices[0].message.content
-
+                result = response.choices[0].message.content
                 st.success("✅ Analysis complete!")
                 st.markdown("### 📋 Analysis Result")
                 st.write(result)
-
             except Exception as e:
                 st.error(f"❌ OpenAI API error: {e}")
         else:
@@ -219,3 +213,8 @@ Job Description:
 # ------------------- RUN APP -------------------
 if __name__ == "__main__":
     main()
+
+
+
+
+
