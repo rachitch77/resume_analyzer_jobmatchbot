@@ -12,7 +12,7 @@ TAB_NAME = "Users"
 DEBUG_MODE = False
 client = OpenAI(
     api_key=st.secrets["aiintellisense"]["sk_ai_0f46cd905b24297fe67fea06bbb82da23e58b9a22269f6c6"],  
-    base_url="https://api.aiintellisense.com/v1"
+    base_url="https://api.aiintellisense.com/v1")
 
 
 # ------------------- GOOGLE SHEETS -------------------
@@ -213,6 +213,7 @@ Job Description:
 # ------------------- RUN APP -------------------
 if __name__ == "__main__":
     main()
+
 
 
 
