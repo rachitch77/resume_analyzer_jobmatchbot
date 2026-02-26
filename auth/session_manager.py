@@ -85,7 +85,7 @@ def store_user(email, name, password, age=None, gender=None):
             name,           # B - name
             password,       # C - password
             "0",            # D - usage_count
-            "5",            # E - max_usage
+            "15",           # E - max_usage
             str(age or ""), # F - age
             gender or "",   # G - gender
             ""              # H - reserved/OTP
@@ -112,4 +112,5 @@ def authenticate_user(email, password):
     except Exception as e:
         st.error(f"Authentication failed: {e}")
         return False
+
 
