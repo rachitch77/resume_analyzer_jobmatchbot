@@ -19,7 +19,7 @@ def init_session_state():
         "is_logged_in": False,
         "user_data": {},
         "usage_count": 0,
-        "max_usage": 5,
+        "max_usage": 15,
         "email": "",
     }
     for key, value in defaults.items():
@@ -112,3 +112,4 @@ def authenticate_user(email, password):
     except Exception as e:
         st.error(f"Authentication failed: {e}")
         return False
+
