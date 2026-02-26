@@ -47,7 +47,7 @@ def get_usage(email):
         range=f"{TAB_NAME}!G{row}:H{row}"
     ).execute().get("values", [[]])[0]
     current = int(values[0]) if len(values) > 0 and values[0].isdigit() else 0
-    max_val = values[1] if len(values) > 1 else "5"
+    max_val = values[1] if len(values) > 1 else "15"
     return current, max_val
 
 def increment_usage(email):
@@ -214,6 +214,7 @@ Job Description:
 # ------------------- RUN APP -------------------
 if __name__ == "__main__":
     main()
+
 
 
 
